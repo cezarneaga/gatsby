@@ -1,3 +1,5 @@
+const crypto = require(`crypto`)
+const uuidv4 = require(`uuid/v4`)
 const { buildSchema, printSchema } = require(`graphql`)
 const {
   makeRemoteExecutableSchema,
@@ -13,8 +15,15 @@ const {
   StripNonQueryTransform,
 } = require(`./transforms`)
 
-exports.sourceNodes = async ({ boundActionCreators, cache }, options) => {
-  const { addThirdPartySchema } = boundActionCreators
+exports.sourceNodes = async (
+  { boundActionCreators, createNodeId, cache, store },
+  options
+) => {
+  const {
+    addThirdPartySchema,
+    createPageDependency,
+    createNode,
+  } = boundActionCreators
   const {
     url,
     typeName,
@@ -73,12 +82,42 @@ exports.sourceNodes = async ({ boundActionCreators, cache }, options) => {
     link,
   })
 
+  const nodeId = createNodeId(`gatsby-source-graphql-${typeName}`)
+
+  const nodeContent = uuidv4()
+
+  const nodeContentDigest = crypto
+    .createHash(`md5`)
+    .update(nodeContent)
+    .digest(`hex`)
+
+  const node = {
+    id: nodeId,
+    typeName: typeName,
+    fieldName: fieldName,
+    parent: null,
+    children: [],
+    internal: {
+      type: `GraphQLSource`,
+      contentDigest: nodeContentDigest,
+      ignoreType: true,
+    },
+  }
+
+  createNode(node)
+
+  const resolver = (parent, args, context) => {
+    createPageDependency({ path: context.path, nodeId: nodeId })
+    return {}
+  }
+
   const schema = transformSchema(remoteSchema, [
     new StripNonQueryTransform(),
     new RenameTypes(name => `${typeName}_${name}`),
     new NamespaceUnderFieldTransform({
-      typeName: typeName,
-      fieldName: fieldName,
+      typeName,
+      fieldName,
+      resolver,
     }),
   ])
 

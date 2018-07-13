@@ -26,7 +26,10 @@ import type { ProcessedNodeType } from "./infer-graphql-type"
 type TypeMap = { [typeName: string]: ProcessedNodeType }
 
 module.exports = async () => {
-  const types = _.groupBy(getNodes(), node => node.internal.type)
+  const types = _.groupBy(
+    getNodes().filter(node => node.internal && !node.internal.ignoreType),
+    node => node.internal.type
+  )
   const processedTypes: TypeMap = {}
 
   clearTypeExampleValues()

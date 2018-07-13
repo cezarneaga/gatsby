@@ -9,9 +9,10 @@ const {
 } = require(`graphql-tools/dist/stitching/schemaRecreation`)
 
 class NamespaceUnderFieldTransform {
-  constructor({ typeName, fieldName }) {
+  constructor({ typeName, fieldName, resolver }) {
     this.typeName = typeName
     this.fieldName = fieldName
+    this.resolver = resolver
   }
 
   transformSchema(schema) {
@@ -37,8 +38,12 @@ class NamespaceUnderFieldTransform {
       fields: {
         [this.fieldName]: {
           type: nestedType,
-          resolve() {
-            return {}
+          resolve: (parent, args, context, info) => {
+            if (this.resolver) {
+              return this.resolver(parent, args, context, info)
+            } else {
+              return {}
+            }
           },
         },
       },
